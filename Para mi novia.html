@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Un viaje de girasoles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#05060f;
+    --bg-mid:#0b0f24;
+    --glow-1:#ff9b1c;
+    --glow-2:#ffd447;
+    --yellow:#ffd84d;
+    --yellow-soft:#ffe98a;
+    --white:#fff9e8;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  html,body{height:100%;margin:0;overflow:hidden;background:var(--bg-deep);}
+  body{
+    font-family:'Quicksand',system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:var(--white);
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+  }
+
+  /* ---------- fondo ---------- */
+  #bg{
+    position:fixed;inset:0;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,155,28,.45) 0%, rgba(255,120,10,.16) 22%, rgba(10,12,32,0) 58%),
+      radial-gradient(circle at 50% 45%, #14183a 0%, #080a18 55%, #04050c 100%);
+    z-index:0;
+  }
+  #bg::after{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(circle at 50% 50%, rgba(255,190,60,.30) 0%, rgba(255,140,20,0) 45%);
+    animation:pulseGlow 4.5s ease-in-out infinite;
+  }
+  @keyframes pulseGlow{0%,100%{opacity:.55;transform:scale(1);}50%{opacity:1;transform:scale(1.12);}}
+
+  /* ---------- escena 3D ---------- */
+  #viewport{
+    position:fixed;inset:0;
+    perspective:800px;
+    perspective-origin:50% 50%;
+    z-index:2;
+    overflow:hidden;
+  }
+  #scene{
+    position:absolute;left:50%;top:50%;
+    transform-style:preserve-3d;
+    width:0;height:0;
+  }
+  .obj{
+    position:absolute;
+    transform-style:preserve-3d;
+    will-change:transform,opacity;
+    pointer-events:none;
+  }
+  .obj .inner{transform:translate(-50%,-50%);}
+
+  /* rayos de velocidad */
+  #streaks{position:fixed;inset:0;z-index:1;overflow:hidden;pointer-events:none;}
+  .streak{
+    position:absolute;left:50%;top:50%;
+    width:2px;height:90px;
+    background:linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,235,170,.85));
+    border-radius:2px;
+    transform-origin:50% 0;
+    opacity:0;
+  }
+
+  /* ---------- girasol ---------- */
+  .flower{cursor:pointer;pointer-events:auto;}
+  .flower svg,.bouquet svg{display:block;filter:drop-shadow(0 0 10px rgba(255,180,40,.55));}
+  .flower .hit{
+    position:absolute;left:50%;top:50%;
+    width:130%;height:130%;
+    transform:translate(-50%,-50%);
+  }
+  .flower .head{transform-origin:0 0;animation:sway 3.6s ease-in-out infinite;}
+  @keyframes sway{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
+
+  .flower.taken{animation:pop .55s ease-out forwards;}
+  @keyframes pop{
+    0%{transform:translate(-50%,-50%) scale(1);filter:brightness(1);}
+    40%{transform:translate(-50%,-50%) scale(1.5);filter:brightness(2.2);}
+    100%{transform:translate(-50%,-50%) scale(.1);opacity:0;}
+  }
+
+  /* ---------- texto flotante ---------- */
+  .txt{
+    white-space:nowrap;
+    font-weight:700;
+    letter-spacing:.5px;
+    color:var(--yellow);
+    text-shadow:0 0 6px rgba(255,190,60,.9),0 0 22px rgba(255,140,20,.65);
+  }
+  .txt.alt{color:var(--white);text-shadow:0 0 8px rgba(255,255,220,.8),0 0 26px rgba(255,190,80,.5);}
+
+  /* ---------- pantalla de inicio ---------- */
+  #start{
+    position:fixed;inset:0;z-index:20;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;cursor:pointer;
+    transition:opacity .9s ease;
+  }
+  #start .bloom{animation:breathe 3s ease-in-out infinite;filter:drop-shadow(0 0 18px rgba(255,170,40,.9));}
+  @keyframes breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+  #start .label{
+    font-family:'Press Start 2P',monospace;
+    font-size:clamp(9px,2.6vw,13px);
+    color:var(--yellow);
+    text-shadow:0 0 8px rgba(255,180,40,.95),0 0 26px rgba(255,120,10,.7);
+    letter-spacing:1px;
+  }
+  #start .msg{
+    max-width:520px;padding:0 26px;text-align:center;
+    font-size:clamp(14px,3.9vw,17px);line-height:1.65;font-weight:500;
+    color:var(--white);
+    text-shadow:0 0 10px rgba(255,190,60,.55);
+  }
+  #start .msg p{margin:0 0 12px;}
+  #start .msg p.big{
+    font-size:clamp(17px,4.8vw,22px);font-weight:700;color:var(--yellow-soft);
+    text-shadow:0 0 12px rgba(255,190,60,.9),0 0 30px rgba(255,140,20,.5);
+  }
+  #start .msg p.sorry{opacity:.85;font-size:clamp(13px,3.5vw,15px);}
+  #start .hint{
+    margin-top:26px;font-size:12px;opacity:.5;letter-spacing:1px;
+  }
+  #start.gone{opacity:0;pointer-events:none;}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed;left:0;right:0;
+    top:env(safe-area-inset-top,0px);
+    padding:16px 18px;
+    z-index:15;display:flex;justify-content:space-between;align-items:center;
+    pointer-events:none;opacity:0;transition:opacity .8s ease .6s;
+    font-size:13px;letter-spacing:1px;
+  }
+  #hud.on{opacity:1;}
+  #counter{
+    background:rgba(10,8,20,.45);
+    border:1px solid rgba(255,200,80,.35);
+    border-radius:999px;padding:7px 15px;
+    backdrop-filter:blur(6px);
+    color:var(--yellow-soft);font-weight:700;
+  }
+  #tip{color:rgba(255,245,220,.55);font-size:11px;}
+
+  /* ---------- frase al recoger ---------- */
+  #pickup{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+    z-index:18;pointer-events:none;text-align:center;
+    font-size:clamp(22px,6.5vw,44px);font-weight:700;
+    color:var(--white);
+    text-shadow:0 0 14px rgba(255,200,80,1),0 0 44px rgba(255,140,20,.8);
+    opacity:0;
+  }
+  #pickup.show{animation:riseUp 1.8s ease-out forwards;}
+  @keyframes riseUp{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.7);}
+    18%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    70%{opacity:1;transform:translate(-50%,-62%) scale(1.04);}
+    100%{opacity:0;transform:translate(-50%,-78%) scale(1.08);}
+  }
+
+  /* ---------- final ---------- */
+  #final{
+    position:fixed;inset:0;z-index:25;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:30px;gap:18px;
+    background:radial-gradient(circle at 50% 50%, rgba(255,150,30,.35), rgba(5,6,15,.92) 65%);
+    opacity:0;pointer-events:none;transition:opacity 1.4s ease;
+  }
+  #final.on{opacity:1;pointer-events:auto;}
+  #final h1{
+    margin:0;font-size:clamp(26px,8vw,54px);
+    color:var(--yellow);
+    text-shadow:0 0 16px rgba(255,190,60,.95),0 0 50px rgba(255,120,10,.7);
+  }
+  #final p{margin:0;max-width:520px;line-height:1.6;color:var(--white);opacity:.9;font-size:clamp(14px,4vw,18px);}
+  #again{
+    margin-top:12px;cursor:pointer;
+    font-family:'Press Start 2P',monospace;font-size:10px;
+    color:#1a1200;background:linear-gradient(180deg,var(--glow-2),var(--glow-1));
+    border:none;border-radius:999px;padding:14px 22px;
+    box-shadow:0 0 22px rgba(255,170,40,.7);
+  }
+  #again:active{transform:scale(.96);}
+
+  @media (prefers-reduced-motion:reduce){
+    #bg::after,.flower .head,#start .bloom{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="sfPetalA" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ee8400"/><stop offset=".5" stop-color="#ffb300"/><stop offset="1" stop-color="#ffd93b"/>
+    </linearGradient>
+    <linearGradient id="sfPetalB" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#f59e00"/><stop offset=".5" stop-color="#ffc81f"/><stop offset="1" stop-color="#ffe56e"/>
+    </linearGradient>
+    <radialGradient id="sfCenter" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#2b1203"/><stop offset=".55" stop-color="#4a220a"/><stop offset=".85" stop-color="#6e3512"/><stop offset="1" stop-color="#8f5320"/>
+    </radialGradient>
+    <radialGradient id="sfShade" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#3c1900" stop-opacity="0"/><stop offset=".8" stop-color="#3c1900" stop-opacity=".55"/><stop offset="1" stop-color="#3c1900" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sfLeaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4cbf60"/><stop offset="1" stop-color="#2a7f3a"/>
+    </linearGradient>
+    <g id="sfHead"></g>
+  </defs>
+</svg>
+
+<div id="bg"></div>
+<div id="streaks"></div>
+<div id="viewport"><div id="scene"></div></div>
+
+<div id="hud">
+  <div id="counter">🌻 0 / 12</div>
+  <div id="tip">toca los girasoles</div>
+</div>
+
+<div id="pickup"></div>
+
+<div id="start">
+  <div class="bloom">
+    <svg width="96" height="112" viewBox="0 0 74 86" aria-hidden="true">
+      <path d="M37 42 C36 56 38 70 37 84" stroke="#39a04a" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M37 66 q-16 -10 -22 2 q14 9 22 -2z" fill="url(#sfLeaf)"/>
+      <path d="M37 72 q16 -10 22 2 q-14 9 -22 -2z" fill="url(#sfLeaf)"/>
+      <use href="#sfHead" transform="translate(37,30) scale(.62)"/>
+    </svg>
+  </div>
+  <div class="msg">
+    <p class="big">Espero que estés bien 🌻<br>y desearía que estuvieras aquí conmigo.</p>
+    <p class="sorry">Perdón por las frases un poco groseras, pero solo soy sincero con lo que digo: no me puedo resistir a cómo eres.</p>
+  </div>
+  <div class="label">EMPEZAR VIAJE</div>
+  <div class="hint">toca en cualquier lugar</div>
+</div>
+
+<div id="final">
+  <h1>Te amo 🌻❤️</h1>
+  <p>Recogiste todos los girasoles. Cada uno guardaba algo que quería decirte: que te amo, que me encanta todo de ti, que siempre te tengo ganas, que me traes loco y que nunca te voy a dejar.</p>
+  <button id="again">VOLVER A VIAJAR</button>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ CONFIG ============ */
+  const PHRASES = [
+    "Te amo con todo mi ser ❤️",
+    "Me encantan tus chichis 🔥",
+    "Me encantan tus nalgas 🍑",
+    "Me gustas muchísimo",
+    "Nunca te dejaría",
+    "Siempre te tengo ganas 😏",
+    "Me traes loco",
+    "No puedo resistirme a ti",
+    "Tu cuerpo me vuelve loco",
+    "Eres mi persona favorita",
+    "Contigo todo es mejor",
+    "Te amo, te amo, te amo ❤️"
+  ];
+  const FLOATING = [
+    "Te amo","Me gustas mucho","Me traes loco","Nunca te dejaría",
+    "Te tengo ganas","Me encantas","No me resisto a ti","Eres mi todo",
+    "Me encantan tus chichis","Me encantan tus nalgas","Te amo mucho","Mi favorita"
+  ];
+
+  const TOTAL = PHRASES.length;
+  const NUM_FLOWERS = 26;
+  const NUM_BOUQUETS = 10;
+  const NUM_TEXTS   = 30;
+  const NUM_STREAKS = 46;
+
+  const Z_FAR = -3400, Z_NEAR = 620, FADE_START = -2600, FADE_END = -1500;
+
+  /* ============ SVG ============ */
+  // Cabeza de girasol dibujada una sola vez (se reutiliza con <use>)
+  function petalPath(r0, r1, w){
+    const L = r1 - r0;
+    return `M0,${-r0} C${w},${-(r0+L*.25)} ${w*1.05},${-(r0+L*.75)} 0,${-r1} ` +
+           `C${-w*1.05},${-(r0+L*.75)} ${-w},${-(r0+L*.25)} 0,${-r0}Z`;
+  }
+  function headMarkup(){
+    const n = 14, step = 360/n;
+    const pOut = petalPath(11, 46, 9.5);
+    const pIn  = petalPath(11, 39, 8);
+    let s = "";
+    // capa trasera: pétalos largos con nervadura
+    for(let i=0;i<n;i++){
+      const a = (step*i).toFixed(2);
+      s += `<path d="${pOut}" transform="rotate(${a})" fill="url(#sfPetalA)" stroke="#d97a00" stroke-opacity=".35" stroke-width=".6"/>`;
+      s += `<path d="M0,-14 Q1.5,-28 0,-41" transform="rotate(${a})" fill="none" stroke="#b85f00" stroke-opacity=".3" stroke-width=".7" stroke-linecap="round"/>`;
+    }
+    // capa delantera: pétalos más claros, desfasados
+    for(let i=0;i<n;i++){
+      const a = (step*i + step/2).toFixed(2);
+      s += `<path d="${pIn}" transform="rotate(${a})" fill="url(#sfPetalB)" stroke="#e08a00" stroke-opacity=".3" stroke-width=".5"/>`;
+    }
+    // sombra donde los pétalos tocan el centro + centro con semillas
+    s += `<circle r="18" fill="url(#sfShade)"/>`;
+    s += `<circle r="15.5" fill="url(#sfCenter)" stroke="#a1601f" stroke-width="1.2"/>`;
+    const seeds = 64;
+    for(let i=1;i<=seeds;i++){
+      const ang = i * 137.508 * Math.PI / 180;
+      const r = 14 * Math.sqrt(i/seeds);
+      const x = (Math.cos(ang)*r).toFixed(2), y = (Math.sin(ang)*r).toFixed(2);
+      const dark = i % 3 !== 0;
+      s += `<circle cx="${x}" cy="${y}" r="${(0.75 + i/seeds*0.55).toFixed(2)}" fill="${dark?'#2a1102':'#e2a656'}" fill-opacity="${dark?.55:.7}"/>`;
+    }
+    return s;
+  }
+  document.getElementById('sfHead').innerHTML = headMarkup();
+
+  function sunflowerSVG(size){
+    const s = size;
+    const dl  = (-Math.random()*3.6).toFixed(2);
+    const rot = rnd(-25,25).toFixed(1);
+    return `<svg width="${s}" height="${s*1.25}" viewBox="0 0 100 125">
+      <path d="M50 60 C47 82 53 102 50 122" stroke="#2f8e40" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M51.2 66 C49 84 54 102 51.5 118" stroke="#57c46a" stroke-opacity=".6" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <path d="M50 108 C36 92 14 96 8 108 C22 122 42 120 50 108Z" fill="url(#sfLeaf)"/>
+      <path d="M50 108 Q28 102 12 108" stroke="#1f6b2e" stroke-opacity=".5" stroke-width="1" fill="none"/>
+      <path d="M51 112 C64 96 86 100 92 112 C78 126 58 124 51 112Z" fill="url(#sfLeaf)"/>
+      <path d="M51 112 Q72 106 88 112" stroke="#1f6b2e" stroke-opacity=".5" stroke-width="1" fill="none"/>
+      <g transform="translate(50,48) rotate(${rot})">
+        <g class="head" style="animation-delay:${dl}s"><use href="#sfHead"/></g>
+      </g>
+    </svg>`;
+  }
+  function bouquetSVG(size){
+    const s = size;
+    return `<svg width="${s}" height="${s}" viewBox="0 0 120 120">
+      <path d="M40 56 L58 110 M88 50 L64 110 M62 84 L61 112" stroke="#2f8e40" stroke-width="5" stroke-linecap="round" fill="none"/>
+      <path d="M60 104 C46 92 30 96 26 104 C38 114 54 112 60 104Z" fill="url(#sfLeaf)"/>
+      <path d="M62 104 C74 92 92 96 96 104 C84 114 68 112 62 104Z" fill="url(#sfLeaf)"/>
+      <use href="#sfHead" transform="translate(34,44) scale(.6)"/>
+      <use href="#sfHead" transform="translate(86,38) scale(.55) rotate(15)"/>
+      <use href="#sfHead" transform="translate(60,68) scale(.68) rotate(-10)"/>
+      <path d="M40 100 L82 100 L74 118 L48 118Z" fill="#c9752a"/>
+      <path d="M40 100 L82 100 L80 104 L42 104Z" fill="#e08a3a"/>
+    </svg>`;
+  }
+
+  /* ============ ESTADO ============ */
+  const scene    = document.getElementById('scene');
+  const viewport = document.getElementById('viewport');
+  const streakBox= document.getElementById('streaks');
+  const counterEl= document.getElementById('counter');
+  const hud      = document.getElementById('hud');
+  const pickup   = document.getElementById('pickup');
+  const startEl  = document.getElementById('start');
+  const finalEl  = document.getElementById('final');
+
+  let objs = [], streaks = [];
+  let running = false, collected = 0, queue = [];
+  let speed = 320, targetSpeed = 320, last = 0;
+
+  const rnd = (a,b)=>a+Math.random()*(b-a);
+  const pick = arr => arr[(Math.random()*arr.length)|0];
+
+  function spreadX(){ return rnd(-1, 1) * Math.max(window.innerWidth, 520) * 1.35; }
+  function spreadY(){ return rnd(-1, 1) * Math.max(window.innerHeight, 520) * 0.95; }
+
+  function placeFar(o, spawnAll){
+    o.x = spreadX();
+    o.y = spreadY();
+    // evitar que aparezca justo en el centro (tapa la vista)
+    if(Math.abs(o.x) < 120 && Math.abs(o.y) < 120) o.x += 260 * (Math.random()<.5?-1:1);
+    o.z = spawnAll ? rnd(Z_FAR, Z_NEAR-200) : rnd(Z_FAR, Z_FAR+900);
+    o.rot = rnd(-12,12);
+    o.taken = false;
+    o.el.classList.remove('taken');
+    o.el.style.opacity = 0;
+    if(o.type === 'text'){
+      o.inner.textContent = pick(FLOATING);
+      o.inner.className = 'inner txt' + (Math.random()<.35 ? ' alt' : '');
+      o.inner.style.fontSize = rnd(20,52).toFixed(0)+'px';
+    }
+  }
+
+  function makeObj(type, spawnAll){
+    const el = document.createElement('div');
+    el.className = 'obj ' + type;
+    const inner = document.createElement('div');
+    inner.className = 'inner';
+
+    if(type === 'flower'){
+      inner.innerHTML = sunflowerSVG(rnd(90,150));
+      const hit = document.createElement('div');
+      hit.className = 'hit';
+      inner.appendChild(hit);
+    } else if(type === 'bouquet'){
+      inner.innerHTML = bouquetSVG(rnd(90,160));
+    } else {
+      inner.className = 'inner txt';
+    }
+
+    el.appendChild(inner);
+    scene.appendChild(el);
+
+    const o = { el, inner, type };
+    placeFar(o, spawnAll);
+
+    if(type === 'flower'){
+      el.addEventListener('pointerdown', ev => {
+        ev.stopPropagation();
+        collect(o);
+      });
+    }
+    return o;
+  }
+
+  function buildStreaks(){
+    for(let i=0;i<NUM_STREAKS;i++){
+      const el = document.createElement('div');
+      el.className = 'streak';
+      streakBox.appendChild(el);
+      streaks.push({ el, a: rnd(0,Math.PI*2), d: rnd(40,900), v: rnd(320,900) });
+    }
+  }
+
+  function build(){
+    scene.innerHTML = '';
+    objs = [];
+    for(let i=0;i<NUM_FLOWERS;i++)  objs.push(makeObj('flower', true));
+    for(let i=0;i<NUM_BOUQUETS;i++) objs.push(makeObj('bouquet', true));
+    for(let i=0;i<NUM_TEXTS;i++)    objs.push(makeObj('text', true));
+  }
+
+  /* ============ RECOGER ============ */
+  function collect(o){
+    if(!running || o.taken || collected >= TOTAL) return;
+    o.taken = true;
+    o.el.querySelector('.inner').classList.add('taken');
+    o.el.style.pointerEvents = 'none';
+
+    const phrase = queue.shift() || "Para ti";
+    collected++;
+    counterEl.textContent = '🌻 ' + collected + ' / ' + TOTAL;
+
+    pickup.textContent = phrase;
+    pickup.classList.remove('show');
+    void pickup.offsetWidth;
+    pickup.classList.add('show');
+
+    targetSpeed = 700;
+    setTimeout(()=>{ targetSpeed = 340; }, 700);
+
+    setTimeout(()=>{
+      o.el.querySelector('.inner').classList.remove('taken');
+      o.el.style.pointerEvents = '';
+      placeFar(o, false);
+    }, 700);
+
+    if(collected >= TOTAL){
+      setTimeout(()=>{
+        finalEl.classList.add('on');
+        targetSpeed = 120;
+      }, 1900);
+    }
+  }
+
+  /* ============ LOOP ============ */
+  function frame(t){
+    if(!last) last = t;
+    let dt = (t - last) / 1000;
+    last = t;
+    if(dt > .12) dt = .12;
+    if(!running){ requestAnimationFrame(frame); return; }
+
+    speed += (targetSpeed - speed) * Math.min(1, dt*3);
+
+    for(let i=0;i<objs.length;i++){
+      const o = objs[i];
+      o.z += speed * dt;
+      if(o.z > Z_NEAR){ placeFar(o, false); continue; }
+
+      let op = 1;
+      if(o.z < FADE_END){
+        op = (o.z - FADE_START) / (FADE_END - FADE_START);
+        if(op < 0) op = 0;
+      }
+      if(o.z > 380) op *= Math.max(0, 1 - (o.z - 380) / (Z_NEAR - 380));
+      if(o.type === 'text') op *= .92;
+
+      o.el.style.opacity = op.toFixed(3);
+      o.el.style.transform =
+        'translate3d(' + o.x.toFixed(1) + 'px,' + o.y.toFixed(1) + 'px,' + o.z.toFixed(1) + 'px)' +
+        ' rotate(' + o.rot.toFixed(1) + 'deg)';
+    }
+
+    const cx = window.innerWidth/2, cy = window.innerHeight/2;
+    const maxR = Math.hypot(cx, cy) * 1.15;
+    for(let i=0;i<streaks.length;i++){
+      const s = streaks[i];
+      s.d += (s.v + speed*1.1) * dt;
+      if(s.d > maxR){ s.d = rnd(20,90); s.a = rnd(0,Math.PI*2); }
+      const x = Math.cos(s.a) * s.d, y = Math.sin(s.a) * s.d;
+      const len = 26 + s.d * 0.16 + speed*0.05;
+      const deg = s.a * 180/Math.PI - 90;
+      s.el.style.transform = 'translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px) rotate('+deg.toFixed(1)+'deg) scaleY('+(len/90).toFixed(3)+')';
+      s.el.style.opacity = Math.min(.75, s.d / maxR * 0.9).toFixed(2);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  /* ============ INICIO / REINICIO ============ */
+  function reset(){
+    collected = 0;
+    queue = PHRASES.slice();
+    counterEl.textContent = '🌻 0 / ' + TOTAL;
+    objs.forEach(o => placeFar(o, true));
+    speed = 320; targetSpeed = 340;
+  }
+
+  function begin(){
+    reset();
+    running = true;
+    startEl.classList.add('gone');
+    hud.classList.add('on');
+    finalEl.classList.remove('on');
+  }
+
+  startEl.addEventListener('pointerdown', begin);
+  document.getElementById('again').addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    finalEl.classList.remove('on');
+    reset();
+  });
+
+  // acelerar al tocar el vacío
+  viewport.addEventListener('pointerdown', () => {
+    if(!running) return;
+    targetSpeed = 640;
+    setTimeout(()=>{ if(collected < TOTAL) targetSpeed = 340; }, 550);
+  });
+
+  window.addEventListener('resize', () => {
+    objs.forEach(o => { if(o.z < FADE_END) placeFar(o, false); });
+  });
+
+  buildStreaks();
+  build();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
